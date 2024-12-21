@@ -1,0 +1,21 @@
+(defproject i2p-clj "0.1.0-SNAPSHOT"
+  :description "FIXME: write description"
+  :url "http://example.com/FIXME"
+  :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
+            :url "https://www.eclipse.org/legal/epl-2.0/"}
+  :java-source-paths ["~/src/narayana/"]
+  :target-path "target/"
+  :dependencies [[com.cognitect/transit-clj "1.0.333"]
+                 [net.i2p.client/mstreaming "2.7.0"]
+                 [net.i2p.client/streaming "2.7.0"]
+                 [net.i2p/i2p "2.7.0"]
+                 [net.i2p/router "2.7.0"]
+                 [org.apache.activemq/apache-artemis "2.38.0" :extension "pom"]
+                 [org.clojure/clojure "1.11.1"]
+                 [org.jboss.logging/jboss-logging "3.6.1.Final"]
+                 [org.jboss.narayana.jta/narayana-jta "7.1.0.Final"
+                  :exclusions [org.jboss.logging/jboss-logging]]]
+  :aot [i2p-clj.i2p-xaresource i2p-clj.core]
+  :main [i2p-clj.core]
+  :jvm-opts ["-Dcom.arjuna.ats.arjuna.loggerLevel=DEBUG"]
+  :repl-options {:init-ns i2p-clj.core})
