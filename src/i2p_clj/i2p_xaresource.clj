@@ -19,11 +19,6 @@
 ;; (:gen-class
 ;;  :name "i2p-clj.I2pXAResource")
 
-(defn create-conn [state]
-
-
-  )
-
 (defn -init
   [destination]
   [[] (atom {:timeout           10000
@@ -41,6 +36,20 @@
   (if key
     (@(.state this) key)
     @(.state this)))
+
+(defn create-conn [this state]
+  (try
+    (let [dest    (get-state this :destination)
+          manager (I2PSocketManagerFactory/createManager)
+          ;;session (.getSession manager)
+          socket  (.connect manager dest)
+          out     (.getOutputStream socket)
+          in      (.getInputStream socket)]
+      (swap! (.state this) #(assoc % [:conn] {:dest    dest
+                                              :manager manager
+                                              :socket  socket
+                                              :out     out
+                                              :in      in})))))
 
 (defn -getMessage
   [this]
@@ -77,8 +86,7 @@
 
 (defn ^Integer -getTransactionTimeout [this]
   (println "gettransactiontimeout")
-  (get-state :timeout)
-  )
+  (get-state :timeout))
 
 ;; implemented but not tested
 (defn -commit [this ^Xid xid ^Boolean one-phase]
@@ -86,12 +94,11 @@
   (println one-phase)
 
   ;; connect
-  (try (let [dest    (get-state this :destination)
-             manager (I2PSocketManagerFactory/createManager)
-             ;;session (.getSession manager)
-             socket  (.connect manager dest)
-             out     (.getOutputStream socket)
-             in      (.getInputStream socket)]
+  (try (let [{dest    :dest
+              manager :manager
+              socket  :socket
+              out     :out
+              in      :in} (create-conn)]
 
          ;; store connection in class state
          (swap! (.state this) #(assoc % :connection {:manager manager
