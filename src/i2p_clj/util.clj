@@ -1,6 +1,7 @@
 (ns i2p-clj.util
   (:require [cognitect.transit :as transit])
-  (:import [java.io ByteArrayInputStream ByteArrayOutputStream]))
+  (:import [java.io ByteArrayInputStream ByteArrayOutputStream]
+           [net.i2p.client I2PClientFactory]))
 
 (defn to-transit [data]
   (let [out (ByteArrayOutputStream. 4096)
@@ -14,3 +15,8 @@
                                         (.toByteArray t)))
         reader (transit/reader in :json)]
     (transit/read reader)))
+
+(defn create-destination []
+  (let [os     (new ByteArrayOutputStream)
+        client (I2PClientFactory/createClient)]
+    (.toBase64 (.createDestination client os))))
