@@ -20,8 +20,10 @@
   (with-open [os (new ByteArrayOutputStream)]
     (let [client (I2PClientFactory/createClient)
           dest   (.createDestination client os)]
-      {:key         (.toByteArray os)
-       :destination dest
-       :b64         (.toBase64 dest)
-       :b32         (.toBase32 dest)
-       :hash        {:b32 (-> dest .getHash .toBase32)}})))
+      {:priv-key-b32 (-> os .toByteArray net.i2p.data.Base32/encode)
+       :b64          (.toBase64 dest)
+       :b32          (.toBase32 dest)
+       :cert         (.getCertificate dest)
+       :enc-type     (.getEncType dest)
+       :pub-key      (.getPublicKey dest)
+       :hash         {:b32 (-> dest .getHash .toBase32)}})))
