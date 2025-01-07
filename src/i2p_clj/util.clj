@@ -18,5 +18,10 @@
 
 (defn create-destination []
   (with-open [os (new ByteArrayOutputStream)]
-    (let [client (I2PClientFactory/createClient)]
-      (.toBase64 (.createDestination client os)))))
+    (let [client (I2PClientFactory/createClient)
+          dest   (.createDestination client os)]
+      {:key         (.toByteArray os)
+       :destination dest
+       :b64         (.toBase64 dest)
+       :b32         (.toBase32 dest)
+       :hash        {:b32 (-> dest .getHash .toBase32)}})))
