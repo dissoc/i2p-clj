@@ -1,6 +1,7 @@
 (ns i2p-clj.util
   (:require [cognitect.transit :as transit])
   (:import [java.io ByteArrayInputStream ByteArrayOutputStream]
+           [net.i2p.data Base32]
            [net.i2p.client I2PClientFactory]))
 
 (defn to-transit [data]
@@ -20,10 +21,15 @@
   (with-open [os (new ByteArrayOutputStream)]
     (let [client (I2PClientFactory/createClient)
           dest   (.createDestination client os)]
-      {:priv-key-b32 (-> os .toByteArray net.i2p.data.Base32/encode)
+      {:priv-key-b32 (-> os .toByteArray Base32/encode)
        :b64          (.toBase64 dest)
        :b32          (.toBase32 dest)
        :cert         (.getCertificate dest)
        :enc-type     (.getEncType dest)
        :pub-key      (.getPublicKey dest)
        :hash         {:b32 (-> dest .getHash .toBase32)}})))
+
+(defn b32->input-stream [b32-str]
+  (-> b32-str
+      Base32/decode
+      ByteArrayInputStream.))
