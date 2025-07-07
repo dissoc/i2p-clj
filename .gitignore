@@ -24,3 +24,6 @@ keyBackup/
 logging.properties
 logs/
 ObjectStore/
+PutObjectStoreDirHere/*
+activemq-data/
+router.ping
