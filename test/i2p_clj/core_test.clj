@@ -3,6 +3,7 @@
             [me.raynes.fs :refer [copy-dir]]
             [i2p-clj.config :refer [config]]
             [i2p-clj.util :as util]
+            [taoensso.timbre :refer [error info]]
             [cloboss.messaging]
             [cloboss.messaging :as messaging]
             [i2p-clj.core :refer :all])
@@ -10,11 +11,11 @@
            [net.i2p.data Destination]
            [java.io File DataInputStream DataOutputStream]))
 
+
 ;; NOTE: IMPORTANT: tests do not necessarily execute in order. be cautious when
 ;; adding separate deftests that have dependencies.
 
-;; TODO
-;; test settings for router and client
+;; TODO test the use of cloboss messaging
 
 (defonce test-router (atom nil))
 
@@ -63,13 +64,23 @@
       (is (.isAlive router))
 
       (testing "creating socket server"
-        (let [server-socket (create-i2p-socket-server
+        (let [allow-set     (conj #{} (-> config
+                                          :client
+                                          :destination
+                                          :address-b64))
+              allow-list    (create-allowlist
+                             :on-filter (fn [destination]
+                                          (let [b64-address (.toBase64 destination)
+                                                allowed?    (contains? allow-set b64-address)]
+                                            (info (str "address attempting to connect: "
+                                                       b64-address
+                                                       " allowed? " allowed?))
+                                            (def last-dest destination)
+                                            allowed?)))
+              server-socket (create-i2p-socket-server
                              (-> config :server :destination :priv-key-b32)
                              :incoming-connection-filter
-                             (create-allowlist
-                              :on-filter (fn [destination]
-                                           (def last-dest destination)
-                                           true)))]
+                             allow-list)]
           (def my-server-socket server-socket)
           (is (not (.isDestroyed (:manager server-socket))))
 
@@ -97,7 +108,6 @@
                                   on-receive)]))))))
 
   (testing "the creation of client socket"
-    (Thread/sleep (* 120 1000))
     (let [remote-destination         (-> config
                                          :server
                                          :destination
@@ -112,7 +122,9 @@
                                       remote-destination
                                       :incoming-connection-filter
                                       (create-allowlist
+                                       ;; NOTE the destination is the source destination trying to connect
                                        :on-filter (fn [destination]
+                                                    (let [b64-address (.toBase64 destination)])
                                                     (def last-dest destination)
                                                     true)))
           text-echo-promise          (promise)
@@ -133,4 +145,22 @@
                                  "the next tests will rely on transit")
               _             (sender client-dos simple-string)]
           (is (= (String. @@response)
-                 simple-string)))))))
+                 simple-string))))))
+  (testing "client with address not in allowlist"
+    (let [remote-destination           (-> config
+                                           :server
+                                           :destination
+                                           :b64
+                                           Destination.)
+          {:keys [key-stream-base-32]} (util/create-destination)
+          allow-list                   (create-allowlist
+                                        :on-filter (fn [destination]
+                                                     true))
+          exception-message            (try (create-i2p-socket-client
+                                             key-stream-base-32
+                                             remote-destination
+                                             :incoming-connection-filter allow-list
+                                             :retry-attempts 1)
+                                            (catch Exception e (.getMessage e)))]
+      (is (= "Unable to connect to remote destination"
+             exception-message)))))
