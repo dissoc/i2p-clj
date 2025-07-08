@@ -1,0 +1,37 @@
+#+TITLE:     i2p-clj
+#+AUTHOR:    Justin Bishop
+#+LANGUAGE:  en
+#+EMAIL:     (concat "mail" @ "dissoc.me")
+#+TAGS:      clojure clj i2p anonymous
+
+#+OPTIONS: num:nil
+#+OPTIONS: toc:nil
+
+i2p-clj is a clojure wrapper for the i2p network.
+
+the test directory provides examples on how to use library
+
+* installation
+To install the extension run the command:
+#+BEGIN_SRC sh :results output
+  lein test
+  lein install
+#+END_SRC
+
+* example
+look at tests for a more comprehensive example
+#+BEGIN_SRC clojure
+  ;;; ...
+  (def server (create-i2p-socket-server
+               destination-with-private-key
+               :incoming-connection-filter
+               allow-list))
+
+  (def client (create-i2p-socket-client
+               (-> config :client
+                   :destination
+                   :priv-key-b32)
+               remote-destination-base64-address
+               :incoming-connection-filter
+               allow-list ))
+#+END_SRC
