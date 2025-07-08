@@ -4,8 +4,8 @@
             [i2p-clj.config :refer [config]]
             [i2p-clj.util :as util]
             [taoensso.timbre :refer [error info]]
-            [cloboss.messaging]
-            [cloboss.messaging :as messaging]
+            ;; [cloboss.messaging]
+            ;; [cloboss.messaging :as messaging]
             [i2p-clj.core :refer :all])
   (:import [net.i2p.router Router RouterLaunch RouterContext]
            [net.i2p.data Destination]
@@ -19,11 +19,11 @@
 
 (defonce test-router (atom nil))
 
-(defonce test-sender-queue (messaging/queue "test-sender-queue"))
+;; (defonce test-sender-queue (messaging/queue "test-sender-queue"))
 
-(defonce test-sender-queue-listener
-  (messaging/listen test-sender-queue
-                    (fn [m] (println m))))
+;; (defonce test-sender-queue-listener
+;;   (messaging/listen test-sender-queue
+;;                     (fn [m] (println m))))
 
 (def response (atom nil))
 

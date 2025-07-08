@@ -16,8 +16,8 @@
                  [net.i2p/i2p "2.7.0"]
                  [net.i2p/router "2.7.0"]
                  [ch.qos.logback/logback-classic "1.5.18"]
-                 [org.apache.activemq/apache-artemis "2.38.0" :extension "pom"]
-                 [org.cloboss/messaging "2.2.0-SNAPSHOT"]
+                 ;;[org.apache.activemq/apache-artemis "2.38.0" :extension "pom"]
+                 ;;[org.cloboss/messaging "2.2.0-SNAPSHOT"]
                  [org.clojure/clojure "1.11.1"]
                  [org.jboss.logging/jboss-logging "3.6.1.Final"]
                  [org.jboss.narayana.jta/narayana-jta "7.1.0.Final"
