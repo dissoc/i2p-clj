@@ -110,16 +110,19 @@
 (defn create-i2p-socket-client
   [dest-priv-key-b32
    remote-dest
-   & {:keys [incoming-connection-filter client-options]
+   & {:keys [incoming-connection-filter client-options retry-attempts]
       :or   {client-options (->> (System/getProperties)
                                  .clone
-                                 (cast java.util.Properties))}}]
+                                 (cast java.util.Properties))
+             retry-attempts 5}}]
   (let [k                  (b32->input-stream dest-priv-key-b32)
         manager            (if incoming-connection-filter
                              (I2PSocketManagerFactory/createManager k incoming-connection-filter)
                              (I2PSocketManagerFactory/createManager k))
         session            (.getSession manager)
-        socket             (connect-with-retries manager remote-dest 5)
+        socket             (connect-with-retries manager
+                                                 remote-dest
+                                                 retry-attempts)
         ;; streams
         input-stream       (.getInputStream socket)
         data-input-stream  (new DataInputStream input-stream)
