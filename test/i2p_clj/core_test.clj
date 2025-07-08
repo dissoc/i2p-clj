@@ -19,6 +19,8 @@
 
 (defonce test-router (atom nil))
 
+(defonce destinations (atom {:server nil
+                             :client nil}))
 ;; (defonce test-sender-queue (messaging/queue "test-sender-queue"))
 
 ;; (defonce test-sender-queue-listener
@@ -62,24 +64,34 @@
                                    :config router-config)))]
       (is (.isAlive router))
 
+      (testing "creating server and client destination"
+        (let [server-destination (util/create-destination)
+              client-destination (util/create-destination)]
+          (reset! destinations {:server server-destination
+                                :client client-destination})
+          ;; TODO use spec to validate structure
+          (is (and server-destination client-destination))))
+
       (testing "creating socket server"
-        (let [allow-set     (conj #{} (-> config
-                                          :client
-                                          :destination
-                                          :address-b64))
-              allow-list    (create-allowlist
-                             :on-filter (fn [destination]
-                                          (let [b64-address (.toBase64 destination)
-                                                allowed?    (contains? allow-set b64-address)]
-                                            (info (str "address attempting to connect: "
-                                                       b64-address
-                                                       " allowed? " allowed?))
-                                            (def last-dest destination)
-                                            allowed?)))
-              server-socket (create-i2p-socket-server
-                             (-> config :server :destination :priv-key-b32)
-                             :incoming-connection-filter
-                             allow-list)]
+        (let [server-key-stream (-> @destinations
+                                    :server
+                                    :key-stream-base-32)
+              allow-set         (conj #{} (-> @destinations
+                                              :client
+                                              :address-base-64))
+              allow-list        (create-allowlist
+                                 :on-filter (fn [destination]
+                                              (let [b64-address (.toBase64 destination)
+                                                    allowed?    (contains? allow-set b64-address)]
+                                                (info (str "address attempting to connect: "
+                                                           b64-address
+                                                           " allowed? " allowed?))
+                                                (def last-dest destination)
+                                                allowed?)))
+              server-socket     (create-i2p-socket-server
+                                 server-key-stream
+                                 :incoming-connection-filter
+                                 allow-list)]
           (def my-server-socket server-socket)
           (is (not (.isDestroyed (:manager server-socket))))
 
@@ -89,7 +101,7 @@
                                                 :session
                                                 .getMyDestination
                                                 .toBase64)]
-              (is (= (-> config :server :destination :b64)
+              (is (= (-> @destinations :server :address-base-64)
                      active-socket-destination))))
 
           (testing "creating socket server handler"
@@ -107,17 +119,16 @@
                                   on-receive)]))))))
 
   (testing "the creation of client socket"
-    (let [remote-destination         (-> config
+    (let [remote-destination         (-> @destinations
                                          :server
-                                         :destination
-                                         :b64
+                                         :address-base-64
                                          Destination.)
           {socket            :socket
            data-input-stream :data-input-stream
            :as               client} (create-i2p-socket-client
-                                      (-> config :client
-                                          :destination
-                                          :priv-key-b32)
+                                      (-> @destinations
+                                          :client
+                                          :key-stream-base-32)
                                       remote-destination
                                       :incoming-connection-filter
                                       (create-allowlist
@@ -146,10 +157,9 @@
           (is (= (String. @@response)
                  simple-string))))))
   (testing "client with address not in allowlist"
-    (let [remote-destination           (-> config
+    (let [remote-destination           (-> @destinations
                                            :server
-                                           :destination
-                                           :b64
+                                           :address-base-64
                                            Destination.)
           {:keys [key-stream-base-32]} (util/create-destination)
           allow-list                   (create-allowlist
