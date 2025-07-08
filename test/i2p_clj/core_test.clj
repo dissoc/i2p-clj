@@ -49,7 +49,6 @@
 
       (is (= sender-data-structure receiver-data-structure)))))
 
-
 ;; TODO add router config tests
 ;; TODO test filters
 (deftest test-server-and-client-socket
