@@ -91,32 +91,12 @@
     (info "Router started.")
     r))
 
-(defn create-i2p-socket-server
-  ":destination-key base32 string encoded destination key. this is created
-  when the destination is initially created
-
-  :connection-filter function that has 1 argument: Destination of incoming
-  connection. The function returns a boolean, allow (true, of disallow (false))"
-  [{destination-key   :destination-key
-    connection-filter :connection-filter
-    ;; default connection-filter is to allow all
-    :or               {connection-filter (fn [_]
-                                           (warn "server default connection filter allows connection.")
-                                           true)}}]
-  (when-not (string? destination-key)
-    (throw (new IllegalArgumentException
-                (str "Invalid destination-key argument: " destination-key "."
-                     "Expected a base32 encoded destination key."))))
-  (let [key-stream    (b32->input-stream destination-key)
-        manager       (if connection-filter
-                        (I2PSocketManagerFactory/createManager key-stream
-                                                               connection-filter)
-                        (I2PSocketManagerFactory/createManager key-stream))
-        server-socket (.getServerSocket manager)
-        session       (.getSession manager)]
-    {:manager       manager
-     :server-socket server-socket
-     :session       session}))
+(defn default-connection-filter
+  "the default behavior is to allow all connections"
+  [source-address]
+  (warn (str "server default connection filter allows "
+             "connection from: " source-address))
+  true)
 
 (defn connect-with-retries
   "TODO handle different failure reasons"
@@ -217,20 +197,23 @@
 (defn server-socket-reader-loop
   "NOTE it is important that on-receive reads from a stream so it blocks
   awaiting new bytes to arrive"
-  [server-socket
-   & {:keys [on-receive
-             on-socket-close]
-      :or   {on-receive      (fn [_]
-                               (info "received packets on the server socket") )
-             on-socket-close #(info "socket closing")}}]
+  [session-socket
+   on-receive
+   on-connection-close]
   (future
     (try
-      (with-open [input-stream       (.getInputStream server-socket)
+      (with-open [input-stream       (.getInputStream session-socket)
                   data-input-stream  (new DataInputStream input-stream)
-                  output-stream      (.getOutputStream server-socket)
+                  output-stream      (.getOutputStream session-socket)
                   data-output-stream (new DataOutputStream output-stream)]
-        (while (not (.isClosed server-socket))
-          (on-receive {:server-socket      server-socket
+        (while (not (.isClosed session-socket))
+          (on-receive {:session-socket     session-socket
+                       :peer-address       (-> session-socket
+                                               .getPeerDestination
+                                               .toBase64)
+                       :server-address     (-> session-socket
+                                               .getThisDestination
+                                               .toBase64)
                        :input-stream       input-stream
                        :data-input-stream  data-input-stream
                        :output-stream      output-stream
@@ -243,28 +226,75 @@
         (info (str "client java.io.IOException with message: "
                    (.getMessage e))))
       (catch Exception e
-        (do (on-socket-close)
+        (do (on-connection-close session-socket)
             (error "Exception in i2p server handler read loop " e))))))
-
-(def run-server-client-handler? (atom true))
 
 (defn server-socket-handler
   [server-socket
-   & {:keys [on-receive on-server-close]
-      :or   {on-receive
-             (fn [_]
-               (info "received packets on the server socket "))
-             on-server-close (info "server socket handler closed")}}]
+   on-receive
+   on-server-close
+   on-connection-close
+   run-server?]
   (future
     (info "starting i2p socket server handler...")
     (try
-      (while run-server-client-handler?
-        (let [s (.accept server-socket)]
+      (while @run-server?
+        (let [session-socket (.accept server-socket)]
           (info "socket server accepted new client connection")
-          (server-socket-reader-loop s :on-receive on-receive)))
+          (server-socket-reader-loop session-socket
+                                     on-receive
+                                     on-connection-close)))
       (on-server-close)
       (catch java.net.ConnectException e
         (info (str "server java.net.ConnectException with message: "
                    (.getMessage e))))
       (catch Exception e
         (error "Exception in i2p handler loop: " e)))))
+
+(defn create-socket-manager
+  [key-stream connection-filter]
+  (I2PSocketManagerFactory/createManager key-stream
+                                         (-> connection-filter
+                                             create-connection-filter)))
+
+(defn create-i2p-socket-server
+  ":destination-key base32 string encoded destination key. this is created
+  when the destination is initially created
+
+  :connection-filter function that has 1 argument: Destination of incoming
+  connection. The function returns a boolean, allow (true, of disallow (false))"
+  [{destination-key   :destination-key
+    connection-filter :connection-filter
+    on-receive        :on-receive
+    run-server?       :run-server?
+    on-server-close   :on-server-close
+    on-client-close   :on-client-close
+
+    :or {connection-filter default-connection-filter
+         on-receive        #(info
+                              (str "server receives message  "
+                                   "with noop. Configure on-receive"))
+         on-server-close   (info "server socket handler closed")
+         on-client-close   (info "client disconnected")
+         run-server?       (atom true)}}]
+  (when-not (string? destination-key)
+    (throw (new IllegalArgumentException
+                (str "Invalid destination-key argument: "
+                     destination-key "."
+                     "Expected a base32 encoded destination key."))))
+  (let [key-stream    (b32->input-stream destination-key)
+        manager       (create-socket-manager key-stream
+                                             connection-filter)
+        server-socket (.getServerSocket manager)
+        session       (.getSession manager)]
+
+    (server-socket-handler server-socket
+                           on-receive
+                           on-server-close
+                           on-client-close
+                           run-server?)
+
+    {:manager       manager
+     :server-socket server-socket
+     :session       session
+     :run-server    run-server?}))

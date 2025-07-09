@@ -69,43 +69,34 @@
               allow-set         (conj #{} (-> @destinations
                                               :client
                                               :address-base-64))
-              allow-list        (create-connection-filter
-                                 (fn [address-base64]
-                                   (let [allowed? (contains? allow-set
-                                                             address-base64)]
-                                     (info (str "address attempting to connect: "
-                                                address-base64
-                                                " allowed? " allowed?))
+              allow-list        (fn [address-base64]
+                                  (let [allowed? (contains? allow-set
+                                                            address-base64)]
+                                    (info (str "address attempting to connect: "
+                                               address-base64
+                                               " allowed? " allowed?))
 
-                                     allowed?)))
-              server-socket (create-i2p-socket-server
-                             {:destination-key   server-key-stream
-                              :connection-filter allow-list})]
-          (def my-server-socket server-socket)
-          (is (not (.isDestroyed (:manager server-socket))))
+                                    allowed?))
 
+              on-receive (fn [{:keys [;; server-socket can be used to
+                                      ;; destroy session, respond
+                                      ;; based on peer address etc
+                                      server-socket
+                                      input-stream
+                                      data-input-stream
+                                      output-stream
+                                      data-output-stream]
+                               :as   m}]
+                           (let [msg (reader data-input-stream)]
+                             (info "server received message: "
+                                   msg
+                                   " from client")
+                             (sender data-output-stream msg)))
 
-          (testing "correct socket destination"
-            (let [active-socket-destination (-> server-socket
-                                                :session
-                                                .getMyDestination
-                                                .toBase64)]
-              (is (= (-> @destinations :server :address-base-64)
-                     active-socket-destination))))
-
-          (testing "creating socket server handler"
-            (let [on-receive     (fn [{:keys [socket
-                                              input-stream
-                                              data-input-stream
-                                              output-stream
-                                              data-output-stream]
-                                       :as   m}]
-                                   (let [msg (reader data-input-stream)]
-                                     (sender data-output-stream msg)))
-                  server-handler (server-socket-handler
-                                  (:server-socket server-socket)
-                                  :on-receive
-                                  on-receive)]))))))
+              server-session (create-i2p-socket-server
+                              {:destination-key   server-key-stream
+                               :connection-filter allow-list
+                               :on-receive        on-receive})]))))
 
   (testing "the creation of client socket"
     (let [remote-address        (-> @destinations
@@ -136,8 +127,11 @@
 
       (testing "sending and receiving simple message"
         (let [simple-string (str "this is a simple string test. "
-                                 "the next tests will rely on transit")
-              _             (sender client-dos simple-string)]
+                                 "the next tests will rely on transit")]
+          (info (str "client sending messge: "
+                     simple-string
+                     " to server"))
+          (sender client-dos simple-string)
           (is (= (String. @@response)
                  simple-string))))))
   (testing "client with address not in allowlist"

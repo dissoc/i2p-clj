@@ -21,13 +21,34 @@ To install the extension run the command:
 * example
 refer to tests for a more comprehensive example
 #+BEGIN_SRC clojure
-  ;;; ...
+    ;;; ...
 
   (def server (create-i2p-socket-server
                {:destination-key   server-dest-key
                 :connection-filter (create-connection-filter
                                     (fn [address]
-                                      (check-address address)))}))
+                                      (check-address address)))
+                ;; if connection accepted on-receive fn is invoked
+                :on-receive (fn [{:keys [server-socket
+                                         peer-address ;clients address
+                                         server-address ;this server's address
+                                         input-stream
+                                         data-input-stream
+                                         output-stream
+                                         data-output-stream]}]
+                              ;; you can use server-socket to
+                              ;; destroy session conditionally
+                              ;; or other actions on the socket itself
+
+                              ;; note the helper function reader is used.
+                              ;; the first byte sent in a message is the size
+                              ;; of the total message. reader handles reading
+                              ;; the full message based on the size
+                              (let [msg-from-client (reader data-input-stream)]
+                                ;; echoes the message back to client
+                                ;; notice that sender is also used to complement
+                                ;; reader. first byte is size of total message
+                                (sender data-output-stream msg-from-client)))}))
 
   (def client (create-i2p-socket-client
                {:destination-key   client-dest-key
@@ -41,3 +62,5 @@ refer to tests for a more comprehensive example
 
   (sender client-dos "hello from client") ;; sent over wire as transit
 #+END_SRC
+
+* TODO start the handler during the creation of the server or client
