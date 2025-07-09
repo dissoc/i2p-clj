@@ -10,6 +10,7 @@
    (net.i2p.data Destination)
    (net.i2p.router Router RouterContext)))
 
+
 (defn sender
   "dos will be provided by the server or client socket connection
   message can be any transit compatible data structure"
@@ -113,61 +114,6 @@
             (Thread/sleep (* 60 1000))
             (connect-with-retries manager remote-address (dec n-times))))))))
 
-(defn create-i2p-socket-client
-  [{destination-key   :destination-key
-    remote-address    :remote-address
-    connection-filter :connection-filter
-    client-options    :client-options
-    retry-attempts    :retry-attempts
-    ;; default connection-filter is to allow all
-    :or               {connection-filter (fn [_]
-                                           (warn "client default connection filter allows connection.")
-                                           true)
-                       client-options    (->> (System/getProperties)
-                                              .clone
-                                              (cast java.util.Properties))
-                       retry-attempts    5}}]
-
-  ;; TODO: check for valid destination key and remote address.
-  ;; by checking for minimum string length, valid characters for base32/64
-  (when-not (string? destination-key)
-    (throw (new IllegalArgumentException
-                (str "Invalid destination-key argument: " destination-key "."
-                     "Expected a base32 encoded destination key."))))
-
-  (when-not (string? remote-address)
-    (throw (new IllegalArgumentException
-                (str "Invalid argument provided for the remote-address: "
-                     remote-address
-                     "Expected a base64 address of the remote server for the "
-                     "client to connect to."))))
-
-  (when-not (number? retry-attempts)
-    (throw (new IllegalArgumentException
-                (str "Invalid argument provided for retry-attempts "
-                     retry-attempts
-                     "Expected a number for connection retry-attempts " "client to connect to."))))
-
-  (let [k                  (b32->input-stream destination-key)
-        manager            (if connection-filter
-                             (I2PSocketManagerFactory/createManager k connection-filter)
-                             (I2PSocketManagerFactory/createManager k))
-        session            (.getSession manager)
-        socket             (connect-with-retries manager
-                                                 remote-address
-                                                 retry-attempts)
-        input-stream       (.getInputStream socket)
-        data-input-stream  (new DataInputStream input-stream)
-        output-stream      (.getOutputStream socket)
-        data-output-stream (new DataOutputStream output-stream)]
-    {:manager            manager
-     :socket             socket
-     :input-stream       input-stream
-     :data-input-stream  data-input-stream
-     :output-stream      output-stream
-     :data-output-stream data-output-stream
-     :session            session}))
-
 (defn base32-address->destination [b32-address]
   (let [naming-service (NamingService/createInstance
                         (RouterContext/getCurrentContext))]
@@ -252,10 +198,13 @@
         (error "Exception in i2p handler loop: " e)))))
 
 (defn create-socket-manager
-  [key-stream connection-filter]
-  (I2PSocketManagerFactory/createManager key-stream
-                                         (-> connection-filter
-                                             create-connection-filter)))
+  [destination-key connection-filter]
+  (let [key-stream (if (instance? java.io.InputStream destination-key)
+                     destination-key
+                     (b32->input-stream destination-key))]
+    (I2PSocketManagerFactory/createManager key-stream
+                                           (-> connection-filter
+                                               create-connection-filter))))
 
 (defn create-i2p-socket-server
   ":destination-key base32 string encoded destination key. this is created
@@ -272,18 +221,17 @@
 
     :or {connection-filter default-connection-filter
          on-receive        #(info
-                              (str "server receives message  "
-                                   "with noop. Configure on-receive"))
-         on-server-close   (info "server socket handler closed")
-         on-client-close   (info "client disconnected")
+                             (str "server receives message  "
+                                  "with noop. Configure on-receive"))
+         on-server-close   #(info "server socket handler closed")
+         on-client-close   #(info "client disconnected")
          run-server?       (atom true)}}]
   (when-not (string? destination-key)
     (throw (new IllegalArgumentException
                 (str "Invalid destination-key argument: "
                      destination-key "."
                      "Expected a base32 encoded destination key."))))
-  (let [key-stream    (b32->input-stream destination-key)
-        manager       (create-socket-manager key-stream
+  (let [manager       (create-socket-manager destination-key
                                              connection-filter)
         server-socket (.getServerSocket manager)
         session       (.getSession manager)]
@@ -293,8 +241,110 @@
                            on-server-close
                            on-client-close
                            run-server?)
-
     {:manager       manager
      :server-socket server-socket
      :session       session
      :run-server    run-server?}))
+
+(defn socket-reader-loop
+  [session-socket
+   input-stream
+   data-input-stream
+   output-stream
+   data-output-stream
+   on-receive
+   on-socket-close]
+  (future
+    (try
+      (while (not (.isClosed session-socket))
+        (on-receive
+         {:session-socket     session-socket
+          :peer-address       (-> session-socket
+                                  .getPeerDestination
+                                  .toBase64)
+          :this-address       (-> session-socket
+                                  .getThisDestination
+                                  .toBase64)
+          :input-stream       input-stream
+          :data-input-stream  data-input-stream
+          :output-stream      output-stream
+          :data-output-stream data-output-stream}))
+
+      ;; TODO Handle exceptions
+      (catch java.io.EOFException e
+        (info (str "server java.io.EOFException with message: "
+                   (.getMessage e))))
+      (catch java.io.IOException e
+        (info "server java.io.IOException with message: " (.getMessage e)))
+      (catch Exception e
+        (do (on-socket-close)
+            (error "Exception in i2p server handler read loop " e))))))
+
+(defn create-i2p-socket-client
+  [{destination-key   :destination-key
+    remote-address    :remote-address
+    connection-filter :connection-filter
+    client-options    :client-options
+    retry-attempts    :retry-attempts
+    on-receive        :on-receive
+    on-socket-close   :on-socket-close
+
+    ;; default connection-filter is to allow all
+    :or {connection-filter default-connection-filter
+         client-options    (->> (System/getProperties)
+                                .clone
+                                (cast java.util.Properties))
+         retry-attempts    5
+         on-receive        #(info
+                             (str "client receives message with noop. "
+                                  "Configure on-receive"))
+         on-socket-close   #(info "socket closing")}}]
+
+  ;; TODO: check for valid destination key and remote address.
+  ;; by checking for minimum string length, valid characters for base32/64
+  (when-not (string? destination-key)
+    (throw (new IllegalArgumentException
+                (str "Invalid destination-key argument: "
+                     destination-key "."
+                     "Expected a base32 encoded destination key."))))
+
+  (when-not (string? remote-address)
+    (throw (new IllegalArgumentException
+                (str "Invalid argument provided for the remote-address: "
+                     remote-address
+                     "Expected a base64 address of the remote server for the "
+                     "client to connect to."))))
+
+  (when-not (number? retry-attempts)
+    (throw (new IllegalArgumentException
+                (str "Invalid argument provided for retry-attempts "
+                     retry-attempts
+                     "Expected a number for connection retry-attempts "
+                     "client to connect to."))))
+
+  (let [manager            (create-socket-manager destination-key
+                                                  connection-filter)
+        session            (.getSession manager)
+        socket             (connect-with-retries manager
+                                                 remote-address
+                                                 retry-attempts)
+        input-stream       (.getInputStream socket)
+        data-input-stream  (new DataInputStream input-stream)
+        output-stream      (.getOutputStream socket)
+        data-output-stream (new DataOutputStream output-stream)]
+
+    (socket-reader-loop socket
+                        input-stream
+                        data-input-stream
+                        output-stream
+                        data-output-stream
+                        on-receive
+                        on-socket-close)
+
+    {:manager            manager
+     :socket             socket
+     :input-stream       input-stream
+     :data-input-stream  data-input-stream
+     :output-stream      output-stream
+     :data-output-stream data-output-stream
+     :session            session}))

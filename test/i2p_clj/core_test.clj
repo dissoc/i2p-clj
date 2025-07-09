@@ -99,28 +99,27 @@
                                :on-receive        on-receive})]))))
 
   (testing "the creation of client socket"
-    (let [remote-address        (-> @destinations
-                                    :server
-                                    :address-base-64)
-          client-dest-key       (-> @destinations
-                                    :client
-                                    :key-stream-base-32)
-          client                (create-i2p-socket-client
-                                 {:destination-key   client-dest-key
-                                  :remote-address    remote-address
-                                  :connection-filter (create-connection-filter
-                                                      (fn [_] true))})
-          socket                (:socket client)
-          data-input-stream     (:data-input-stream client)
-          text-echo-promise     (promise)
-          _                     (reset! response text-echo-promise)
-          on-receive            (fn [{data-input-stream :data-input-stream}]
-                                  (deliver @response (reader data-input-stream)))
-          client-socket-handler (socket-reader-loop client
-                                                    :on-receive on-receive)
-          client-dos            (->> socket
-                                     .getOutputStream
-                                     (new DataOutputStream))]
+    (let [remote-address    (-> @destinations
+                                :server
+                                :address-base-64)
+          client-dest-key   (-> @destinations
+                                :client
+                                :key-stream-base-32)
+          text-echo-promise (promise)
+          _                 (reset! response text-echo-promise)
+          on-receive        (fn [{data-input-stream :data-input-stream}]
+                              (deliver @response (reader data-input-stream)))
+          client            (create-i2p-socket-client
+                             {:destination-key   client-dest-key
+                              :remote-address    remote-address
+                              :connection-filter (fn [_] true)
+                              :on-receive        on-receive})
+          socket            (:socket client)
+
+          data-input-stream (:data-input-stream client)
+          client-dos        (->> socket
+                                 .getOutputStream
+                                 (new DataOutputStream))]
       (def my-client-dos client-dos)
       (def my-client-socket socket)
       (is (not (.isClosed socket)))
@@ -134,6 +133,7 @@
           (sender client-dos simple-string)
           (is (= (String. @@response)
                  simple-string))))))
+
   (testing "client with address not in allowlist"
     (let [remote-address    (-> @destinations
                                 :server
