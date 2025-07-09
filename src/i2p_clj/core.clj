@@ -1,12 +1,13 @@
 (ns i2p-clj.core
   (:require
    [i2p-clj.util :refer [b32->input-stream from-transit to-transit]]
-   [taoensso.timbre :refer [error info]])
+   [taoensso.timbre :refer [error info warn]])
   (:import
    (java.io DataInputStream DataOutputStream File)
    (java.util Properties)
    (net.i2p.client.naming NamingService)
    (net.i2p.client.streaming I2PSocketManagerFactory IncomingConnectionFilter)
+   (net.i2p.data Destination)
    (net.i2p.router Router RouterContext)))
 
 (defn sender
@@ -69,24 +70,48 @@
     (.setProperty "outbound.quantity"
                   (str outbound-quantity))))
 
+(defn ^Boolean create-connection-filter
+  "Filter returns boolean with input of destination
+  Here you check to allow -> true or to deny -> false"
+  [check-destination-fn]
+  (reify IncomingConnectionFilter
+    (allowDestination [this destination]
+      (let [address-base64 (.toBase64 destination)]
+        (check-destination-fn address-base64)))))
+
 (defn create-router [& {:keys [config]}]
   (let [r (if config
             (new Router config)
             (new Router))]
     (.setKillVMOnEnd r false)
     (.runRouter r)
-    ;; wait until router is ready. takes many seconds
+    (info "Waiting for router to start...")
     (while (not (.isRunning r))
       (Thread/sleep 1000))
+    (info "Router started.")
     r))
 
 (defn create-i2p-socket-server
-  [dest-priv-key-b32
-   & {:keys [incoming-connection-filter]}]
-  (let [k             (b32->input-stream dest-priv-key-b32)
-        manager       (if incoming-connection-filter
-                        (I2PSocketManagerFactory/createManager k incoming-connection-filter)
-                        (I2PSocketManagerFactory/createManager k))
+  ":destination-key base32 string encoded destination key. this is created
+  when the destination is initially created
+
+  :connection-filter function that has 1 argument: Destination of incoming
+  connection. The function returns a boolean, allow (true, of disallow (false))"
+  [{destination-key   :destination-key
+    connection-filter :connection-filter
+    ;; default connection-filter is to allow all
+    :or               {connection-filter (fn [_]
+                                           (warn "server default connection filter allows connection.")
+                                           true)}}]
+  (when-not (string? destination-key)
+    (throw (new IllegalArgumentException
+                (str "Invalid destination-key argument: " destination-key "."
+                     "Expected a base32 encoded destination key."))))
+  (let [key-stream    (b32->input-stream destination-key)
+        manager       (if connection-filter
+                        (I2PSocketManagerFactory/createManager key-stream
+                                                               connection-filter)
+                        (I2PSocketManagerFactory/createManager key-stream))
         server-socket (.getServerSocket manager)
         session       (.getSession manager)]
     {:manager       manager
@@ -95,35 +120,62 @@
 
 (defn connect-with-retries
   "TODO handle different failure reasons"
-  [manager remote-destination n-times]
-  (if (zero? n-times)
-    (throw (Exception. "Unable to connect to remote destination"))
-    (try
-      (info "connecting to remote destination...")
-      (.connect manager remote-destination)
-      (catch Exception e
-        (do
-          (info "failed to connect. retrying in 60 seconds...")
-          (Thread/sleep (* 60 1000))
-          (connect-with-retries manager remote-destination (dec n-times)))))))
+  [manager remote-address n-times]
+  (let [remote-destination (Destination. remote-address)]
+    (if (zero? n-times)
+      (throw (Exception. "Unable to connect to remote destination"))
+      (try
+        (info "connecting to remote destination...")
+        (.connect manager remote-destination)
+        (catch Exception e
+          (do
+            (info "failed to connect. retrying in 60 seconds...")
+            (Thread/sleep (* 60 1000))
+            (connect-with-retries manager remote-address (dec n-times))))))))
 
 (defn create-i2p-socket-client
-  [dest-priv-key-b32
-   remote-dest
-   & {:keys [incoming-connection-filter client-options retry-attempts]
-      :or   {client-options (->> (System/getProperties)
-                                 .clone
-                                 (cast java.util.Properties))
-             retry-attempts 5}}]
-  (let [k                  (b32->input-stream dest-priv-key-b32)
-        manager            (if incoming-connection-filter
-                             (I2PSocketManagerFactory/createManager k incoming-connection-filter)
+  [{destination-key   :destination-key
+    remote-address    :remote-address
+    connection-filter :connection-filter
+    client-options    :client-options
+    retry-attempts    :retry-attempts
+    ;; default connection-filter is to allow all
+    :or               {connection-filter (fn [_]
+                                           (warn "client default connection filter allows connection.")
+                                           true)
+                       client-options    (->> (System/getProperties)
+                                              .clone
+                                              (cast java.util.Properties))
+                       retry-attempts    5}}]
+
+  ;; TODO: check for valid destination key and remote address.
+  ;; by checking for minimum string length, valid characters for base32/64
+  (when-not (string? destination-key)
+    (throw (new IllegalArgumentException
+                (str "Invalid destination-key argument: " destination-key "."
+                     "Expected a base32 encoded destination key."))))
+
+  (when-not (string? remote-address)
+    (throw (new IllegalArgumentException
+                (str "Invalid argument provided for the remote-address: "
+                     remote-address
+                     "Expected a base64 address of the remote server for the "
+                     "client to connect to."))))
+
+  (when-not (number? retry-attempts)
+    (throw (new IllegalArgumentException
+                (str "Invalid argument provided for retry-attempts "
+                     retry-attempts
+                     "Expected a number for connection retry-attempts " "client to connect to."))))
+
+  (let [k                  (b32->input-stream destination-key)
+        manager            (if connection-filter
+                             (I2PSocketManagerFactory/createManager k connection-filter)
                              (I2PSocketManagerFactory/createManager k))
         session            (.getSession manager)
         socket             (connect-with-retries manager
-                                                 remote-dest
+                                                 remote-address
                                                  retry-attempts)
-        ;; streams
         input-stream       (.getInputStream socket)
         data-input-stream  (new DataInputStream input-stream)
         output-stream      (.getOutputStream socket)
@@ -135,16 +187,6 @@
      :output-stream      output-stream
      :data-output-stream data-output-stream
      :session            session}))
-
-(defn ^Boolean create-allowlist
-  "Filter returns boolean with input of destination
-  Here you check to allow -> true or to deny -> false"
-  [& {:keys [on-filter]}]
-  (reify IncomingConnectionFilter
-    (allowDestination [this destination]
-      (if on-filter
-        (on-filter destination)
-        false))))
 
 (defn base32-address->destination [b32-address]
   (let [naming-service (NamingService/createInstance
