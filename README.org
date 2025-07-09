@@ -19,19 +19,25 @@ To install the extension run the command:
 #+END_SRC
 
 * example
-look at tests for a more comprehensive example
+refer to tests for a more comprehensive example
 #+BEGIN_SRC clojure
   ;;; ...
-  (def server (create-i2p-socket-server
-               destination-with-private-key
-               :incoming-connection-filter
-               allow-list))
 
-  (def client (create-i2p-socket-client
-               (-> config :client
-                   :destination
-                   :priv-key-b32)
-               remote-destination-base64-address
-               :incoming-connection-filter
-               allow-list ))
+  (def server (create-i2p-socket-server
+               {:destination-key   server-dest-key
+                :connection-filter (create-connection-filter
+                                    (fn [address]
+                                      (check-address address)))}))
+
+    (def client (create-i2p-socket-client
+                 {:destination-key   client-dest-key
+                  :remote-address    remote-address
+                  :connection-filter (create-connection-filter
+                                      (fn [_] true))}))
+
+    (def client-dos (->> socket
+                         .getOutputstream
+                         (new DataOutputstream)))
+
+    (sender client-dos "hello from client") ;; sent over wire as transit
 #+END_SRC
