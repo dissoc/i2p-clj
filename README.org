@@ -29,15 +29,15 @@ refer to tests for a more comprehensive example
                                     (fn [address]
                                       (check-address address)))}))
 
-    (def client (create-i2p-socket-client
-                 {:destination-key   client-dest-key
-                  :remote-address    remote-address
-                  :connection-filter (create-connection-filter
-                                      (fn [_] true))}))
+  (def client (create-i2p-socket-client
+               {:destination-key   client-dest-key
+                :remote-address    remote-address
+                :connection-filter (create-connection-filter
+                                    (fn [_] true))}))
 
-    (def client-dos (->> socket
-                         .getOutputstream
-                         (new DataOutputstream)))
+  (def client-dos (->> socket
+                       .getOutputstream
+                       (new DataOutputstream)))
 
-    (sender client-dos "hello from client") ;; sent over wire as transit
+  (sender client-dos "hello from client") ;; sent over wire as transit
 #+END_SRC
