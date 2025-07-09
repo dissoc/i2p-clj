@@ -25,9 +25,8 @@ refer to tests for a more comprehensive example
 
   (def server (create-i2p-socket-server
                {:destination-key   server-dest-key
-                :connection-filter (create-connection-filter
-                                    (fn [address]
-                                      (check-address address)))
+                :connection-filter (fn [address]
+                                     (check-address address))
                 ;; if connection accepted on-receive fn is invoked
                 :on-receive (fn [{:keys [server-socket
                                          peer-address ;clients address
@@ -53,14 +52,17 @@ refer to tests for a more comprehensive example
   (def client (create-i2p-socket-client
                {:destination-key   client-dest-key
                 :remote-address    remote-address
-                :connection-filter (create-connection-filter
-                                    (fn [_] true))}))
+                :connection-filter (fn [_] true)
+                :on-receive on-receive}))
 
-  (def client-dos (->> socket
-                       .getOutputstream
-                       (new DataOutputstream)))
+  (def client-dos (:data-output-stream client))
+
 
   (sender client-dos "hello from client") ;; sent over wire as transit
 #+END_SRC
 
-* TODO start the handler during the creation of the server or client
+* DONE start the handler during the creation of the server or client
+CLOSED: [2025-07-09 Wed 18:57]
+* TODO Implement server and client restart/reconnect
+if disconnection while running then reconnect.  retry on initial connection
+attempt is already implemented
