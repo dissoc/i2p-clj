@@ -22,6 +22,12 @@
                  [org.jboss.logging/jboss-logging "3.6.1.Final"]
                  [org.jboss.narayana.jta/narayana-jta "7.1.0.Final"
                   :exclusions [org.jboss.logging/jboss-logging]]]
+  :repositories [["github" {:url      "https://maven.pkg.github.com/dissoc/i2p-clj"
+                            :username :env/github_username
+                            :password :env/github_token}]]
+  :deploy-repositories [["github" {:url      "https://maven.pkg.github.com/dissoc/i2p-clj"
+                                   :username :env/github_username
+                                   :password :env/github_token}]]
   :aot [i2p-clj.i2p-xaresource i2p-clj.core]
   :main [i2p-clj.core]
   :jvm-opts ["-Dcom.arjuna.ats.arjuna.loggerLevel=DEBUG" "-Djdk.attach.allowAttachSelf=true"]
