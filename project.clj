@@ -28,11 +28,14 @@
   :repositories [["github"
                   {:url      "https://maven.pkg.github.com/dissoc/i2p-clj"
                    :username :env/github_username
-                   :password :env/github_token}]]
+                   :password :env/github_token
+                   :sign-releases true}]]
   :deploy-repositories [["github"
                          {:url      "https://maven.pkg.github.com/dissoc/i2p-clj"
                           :username :env/github_username
-                          :password :env/github_token}]]
+                          :password :env/github_token
+                          :sign-releases true}]]
+  :signing {:gpg-key :env/gpg_key_id}
   :aot [i2p-clj.i2p-xaresource i2p-clj.core]
   :main [i2p-clj.core]
   :jvm-opts ["-Dcom.arjuna.ats.arjuna.loggerLevel=DEBUG" "-Djdk.attach.allowAttachSelf=true"]
