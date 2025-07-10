@@ -1,3 +1,6 @@
+;;; Copyright © 2025 Justin Bishop
+;;; (apply str (reverse '("me" "." "dissoc" "@" "mail")))
+
 (ns i2p-clj.core
   (:require
    [i2p-clj.util :refer [b32->input-stream from-transit to-transit]]

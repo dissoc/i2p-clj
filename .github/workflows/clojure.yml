@@ -21,7 +21,7 @@ jobs:
       run: lein deps
     - name: Run tests
       run: lein test
-      - name: Deploy to GitHub Packages
+    - name: Deploy to GitHub Packages
       run: lein deploy github
       env:
         GITHUB_USERNAME: ${{ github.actor }}
