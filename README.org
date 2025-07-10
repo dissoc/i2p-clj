@@ -11,6 +11,9 @@ i2p-clj is a clojure wrapper for the i2p network.
 
 the test directory provides examples on how to use library
 
+Important: please note that the certificates in the ./certificates/ directory
+must be included.
+
 * installation
 To install the extension run the command:
 #+BEGIN_SRC sh :results output
@@ -60,9 +63,10 @@ refer to tests for a more comprehensive example
 
   (sender client-dos "hello from client") ;; sent over wire as transit
 #+END_SRC
-
-* DONE start the handler during the creation of the server or client
+* TODOs
+** DONE start the handler during the creation of the server or client
 CLOSED: [2025-07-09 Wed 18:57]
-* TODO Implement server and client restart/reconnect
+** TODO Implement server and client restart/reconnect
 if disconnection while running then reconnect.  retry on initial connection
 attempt is already implemented
+** TODO deploy to artifacts
