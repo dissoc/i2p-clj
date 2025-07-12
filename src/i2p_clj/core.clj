@@ -32,26 +32,35 @@
     (-> message from-transit)))
 
 ;; TODO add more options
-(defn create-config [router-dir base-port]
-  (doto (new java.util.Properties)
-    (.setProperty "i2p.dir.base"
-                  (.getAbsolutePath (new File router-dir)))
-    (.setProperty "i2p.dir.config"
-                  (.getAbsolutePath (new File router-dir "config")))
-    (.setProperty "i2p.dir.router"
-                  (.getAbsolutePath (new File router-dir "router")))
-    (.setProperty "i2p.dir.log"
-                  (.getAbsolutePath (new File router-dir "log")))
-    (.setProperty "i2p.dir.app"
-                  (.getAbsolutePath (new File router-dir "app")))
-    (.setProperty "i2np.ntcp.port"
-                  (str base-port))
-    (.setProperty "i2np.udp.port"
-                  (str (+ base-port 1)))
-    (.setProperty "i2cp.port"
-                  (str (+ base-port 2)))
-    (.setProperty "router.adminPort"
-                  (str (+ base-port 3)))))
+(defn create-router-config
+  [{:keys [router-dir i2np-ntcp-port i2np-udp-port i2cp-port admin-port]}]
+  (let [props (new java.util.Properties)
+        conf  (cond-> {}
+                ;; NOTE: the directory handling probably needs some work
+                router-dir     (assoc "i2p.dir.base"
+                                      (.getAbsolutePath (File. router-dir)))
+                router-dir     (assoc "i2p.dir.config"
+                                      (.getAbsolutePath (File. router-dir
+                                                               "config")))
+                router-dir     (assoc "i2p.dir.router"
+                                      (.getAbsolutePath (File. router-dir
+                                                               "router")))
+                router-dir     (assoc "i2p.dir.log"
+                                      (.getAbsolutePath (File. router-dir
+                                                               "log")))
+                router-dir     (assoc "i2p.dir.app"
+                                      (.getAbsolutePath (File. router-dir
+                                                               "app")))
+                i2np-ntcp-port (assoc "i2np.ntcp.port"
+                                      (str i2np-ntcp-port))
+                i2np-udp-port  (assoc "i2np.udp.port"
+                                      (str i2np-udp-port))
+                i2cp-port      (assoc "i2cp.port"
+                                      (str i2cp-port))
+                admin-port     (assoc "router.adminPort"
+                                      (str admin-port)))]
+    (.putAll props conf)
+    props))
 
 (defn create-client-options
   "options can be found at:
