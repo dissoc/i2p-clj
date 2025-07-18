@@ -37,9 +37,11 @@
                                        :field       :code
                                        :value       code
                                        :constraints #{2 3 10 4 5}}
-                                      (IllegalArgumentException. "Code must be: 2, 3,4 5, or 10"))))]
+                                      (IllegalArgumentException. "Exit code must be: 2, 3, 4, 5, or 10"))))]
     (when (not (nil? router))
-      (.shutdown router (int code-number)))))
+      (info "Shutting down router...")
+      (.shutdown router (int code-number))
+      (info "Router is now shutdown"))))
 
 (defn create-router-config
   "Create comprehensive I2P router configuration Properties object.
