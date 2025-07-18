@@ -2,7 +2,8 @@
   (:require
    [i2p-clj.util :refer [b32->input-stream]])
   (:import
-   (java.util Properties)))
+   (java.util Properties)
+   (net.i2p.client.streaming I2PSocketManager I2PSocketManagerFactory IncomingConnectionFilter)))
 
 ;; NOTE: there are two different functions to create options
 ;; create-router-side-options: when using the manager on the router side
@@ -19,7 +20,7 @@
       (let [address-base64 (.toBase64 destination)]
         (check-destination-fn address-base64)))))
 
-(defn create-socket-manager
+(defn ^I2PSocketManager create-socket-manager
   "Create an I2P socket manager
 
   Parameters:
@@ -56,7 +57,7 @@
       ;; No key stream - use the 4-argument version
       (I2PSocketManagerFactory/createManager host (int port) props filter))))
 
-(defn create-router-side-options
+(defn ^Properties create-router-side-options
   "Create router-side I2CP options Properties object.
 
   Router-side options control tunnel behavior and are passed to the router
