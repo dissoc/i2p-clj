@@ -6,7 +6,7 @@
    (java.util Properties)
    (net.i2p.router Router)))
 
-(defn create-router [& {:keys [config]}]
+(defn ^Router create-router [& {:keys [config]}]
   (let [r (if config
             (new Router config)
             (new Router))]
@@ -17,6 +17,29 @@
       (Thread/sleep 1000))
     (info "Router started.")
     r))
+
+(defn shutdown-router
+  "shutdown-router blocks. May take several seconds for
+  java hooks to complete
+  NOTE: for non-blocking use gracefulShutdown
+  TODO: provide option for graceful non-blocking shutdown"
+  [^Router router & {:keys [code]
+                     :or   {code :graceful}}]
+  (let [code-number (case code
+                      ;; codes found in Router.java
+                      :graceful         2
+                      :hard             3
+                      :oom              10
+                      :hard-restart     4
+                      :graceful-restart 5
+                      (throw (ex-info "Invalid exit code provided"
+                                      {:type        :validatation-error
+                                       :field       :code
+                                       :value       code
+                                       :constraints #{2 3 10 4 5}}
+                                      (IllegalArgumentException. "Code must be: 2, 3,4 5, or 10"))))]
+    (when (not (nil? router))
+      (.shutdown router (int code-number)))))
 
 (defn create-router-config
   "Create comprehensive I2P router configuration Properties object.
