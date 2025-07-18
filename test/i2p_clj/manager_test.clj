@@ -83,3 +83,18 @@
                   :host "localhost"
                   :port 7654
                   :options {:inbound-length 3})))))
+
+;; =============================================================================
+;; Error Handling Tests
+;; =============================================================================
+
+(deftest configuration-error-handling-test
+  (testing "router-side options with invalid types"
+    ;; These should still work since we convert everything to strings
+    (let [props (manager/create-router-side-options :inbound-length "5")]
+      (is (= "5" (.getProperty props "inbound.length")))))
+
+  (testing "client-side options with invalid types"
+    ;; These should still work since we convert everything to strings
+    (let [props (manager/create-client-side-options :i2cp-tcp-port "7655")]
+      (is (= "7655" (.getProperty props "i2cp.tcp.port"))))))
