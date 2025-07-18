@@ -2,7 +2,7 @@
 ;;; (apply str (reverse '("me" "." "dissoc" "@" "mail")))
 
 (defproject i2p-clj "0.1.0"
-  :description "clojure wrapper for i2p network providing server and client"
+  :description "A Clojure library providing I2P anonymous network integration with transaction support, socket management, and SAM protocol implementation"
   :url "https://github.com/dissoc/i2p-clj"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
             :url  "https://www.eclipse.org/legal/epl-2.0/"}
@@ -26,14 +26,14 @@
                  [org.jboss.narayana.jta/narayana-jta "7.1.0.Final"
                   :exclusions [org.jboss.logging/jboss-logging]]]
   :repositories [["github"
-                  {:url      "https://maven.pkg.github.com/dissoc/i2p-clj"
-                   :username :env/github_username
-                   :password :env/github_token
+                  {:url           "https://maven.pkg.github.com/dissoc/i2p-clj"
+                   :username      :env/github_username
+                   :password      :env/github_token
                    :sign-releases true}]]
   :deploy-repositories [["github"
-                         {:url      "https://maven.pkg.github.com/dissoc/i2p-clj"
-                          :username :env/github_username
-                          :password :env/github_token
+                         {:url           "https://maven.pkg.github.com/dissoc/i2p-clj"
+                          :username      :env/github_username
+                          :password      :env/github_token
                           :sign-releases true}]]
   :signing {:gpg-key :env/gpg_key_id}
   :aot [i2p-clj.i2p-xaresource i2p-clj.core]
@@ -47,5 +47,7 @@
    {:jvm-opts       ["-Dconf=test-config.edn"]
     :resource-paths ["env/test/resources"]}
    :dev ;;[:project/test :project/test]
-   {:jvm-opts       ["-Dconf=dev-config.edn"]
+   {:plugins        [[cider/cider-nrepl "0.57.0"]]
+    :repl-options   {:port 7888}
+    :jvm-opts       ["-Dconf=dev-config.edn"]
     :resource-paths ["env/dev/resources"]}})
