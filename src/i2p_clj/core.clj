@@ -3,9 +3,14 @@
 
 (ns i2p-clj.core
   (:require
+   [i2p-clj.client :as client]
+   [i2p-clj.router :as router]
+   [i2p-clj.server :as server]
    [i2p-clj.util :refer [from-transit to-transit]])
   (:import
    (java.io DataInputStream DataOutputStream)))
+
+;; NOTE: refer to the echo test for full example
 
 (defn sender
   "dos will be provided by the server or client socket connection
@@ -23,3 +28,8 @@
         message (byte-array length)]
     (.readFully dis message 0 length)
     (-> message from-transit)))
+
+;; make common functions accessible from core
+(def create-router router/create-router)
+(def create-i2p-socket-client client/create-i2p-socket-client)
+(def create-i2p-socket-server server/create-i2p-socket-server)
