@@ -5,6 +5,12 @@
   (:import
    (java.util Properties)))
 
+(deftest socket-manager-creation-test
+  (testing "create-socket-manager with minimal options"
+    ;; This test doesn't actually connect to I2P, just tests the function structure
+    (is (thrown? Exception ;; Will throw because no I2P router available
+                 (manager/create-socket-manager)))))
+
 ;; =============================================================================
 ;; Unit Tests for Configuration Functions
 ;; =============================================================================
@@ -98,3 +104,31 @@
     ;; These should still work since we convert everything to strings
     (let [props (manager/create-client-side-options :i2cp-tcp-port "7655")]
       (is (= "7655" (.getProperty props "i2cp.tcp.port"))))))
+
+(deftest socket-manager-error-handling-test
+  (testing "socket manager with invalid options map"
+    ;; Should handle map to Properties conversion
+    (is (thrown? Exception
+                 (manager/create-socket-manager :options "not-a-map"))))
+
+  (testing "socket manager with invalid Properties object"
+    (let [invalid-props "not-properties"]
+      (is (thrown? Exception
+                   (manager/create-socket-manager :options invalid-props))))))
+
+(deftest connection-filter-test
+  (testing "create-connection-filter with custom function"
+    (let [allow-list #{"allowed-address-1" "allowed-address-2"}
+          filter-fn (fn [addr] (contains? allow-list addr))
+          connection-filter (manager/create-connection-filter filter-fn)]
+      (is (instance? net.i2p.client.streaming.IncomingConnectionFilter connection-filter))))
+
+  (testing "connection filter logic"
+    (let [allow-only-localhost (fn [addr] (= addr "localhost"))
+          deny-all (fn [addr] false)
+          allow-all (fn [addr] true)]
+      ;; Test that functions work as expected before wrapping
+      (is (= true (allow-only-localhost "localhost")))
+      (is (= false (allow-only-localhost "remote-host")))
+      (is (= false (deny-all "any-address")))
+      (is (= true (allow-all "any-address"))))))

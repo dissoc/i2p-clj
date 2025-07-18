@@ -11,7 +11,7 @@
 ;;
 ;; some parameters will be ignored when used on the incorrect side
 
-(defn- ^Boolean create-connection-filter
+(defn ^Boolean create-connection-filter
   "Filter returns boolean with input of destination
   Here you check to allow -> true or to deny -> false"
   [check-destination-fn]

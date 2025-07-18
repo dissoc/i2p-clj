@@ -7,9 +7,10 @@
   (:import
    (java.io ByteArrayInputStream ByteArrayOutputStream)
    (net.i2p.client I2PClientFactory)
+   (net.i2p.client.naming NamingService)
    (net.i2p.crypto KeyGenerator SigType)
-   (net.i2p.data Base32)))
-
+   (net.i2p.data Base32)
+   (net.i2p.router RouterContext)))
 
 (def default-i2p-sig SigType/EdDSA_SHA512_Ed25519)
 
@@ -40,6 +41,12 @@
        :certificate                    (.getCertificate dest)
        :enc-type                       (.getEncType dest)
        :public-key                     (.getPublicKey dest)})))
+
+
+(defn base32-address->destination [b32-address]
+  (let [naming-service (NamingService/createInstance
+                        (RouterContext/getCurrentContext))]
+    (.lookup naming-service b32-address)))
 
 (defn b32->input-stream [b32-str]
   (-> b32-str
