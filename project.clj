@@ -2,7 +2,7 @@
 ;;; (apply str (reverse '("me" "." "dissoc" "@" "mail")))
 
 (defproject i2p-clj "0.1.0"
-  :description "A Clojure library providing I2P anonymous network integration with transaction support, socket management, and SAM protocol implementation"
+  :description "A Clojure library providing I2P anonymous network integration with socket management and router configuration"
   :url "https://github.com/dissoc/i2p-clj"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
             :url  "https://www.eclipse.org/legal/epl-2.0/"}
@@ -24,17 +24,17 @@
                   :exclusions [org.jboss.logging/jboss-logging]]]
   :repositories [["github"
                   {:url           "https://maven.pkg.github.com/dissoc/i2p-clj"
-                   :username      :env/github_username
-                   :password      :env/github_token
-                   :sign-releases true}]]
+                   :username      ~(System/getenv "GITHUB_USERNAME")
+                   :password      ~(System/getenv "GITHUB_TOKEN")
+                   :sign-releases false}]]
   :deploy-repositories [["github"
                          {:url           "https://maven.pkg.github.com/dissoc/i2p-clj"
-                          :username      :env/github_username
-                          :password      :env/github_token
+                          :username      ~(System/getenv "GITHUB_USERNAME")
+                          :password      ~(System/getenv "GITHUB_TOKEN")
                           :sign-releases true}]]
-  :signing {:gpg-key :env/gpg_key_id}
+  :signing {:gpg-key        ~(System/getenv "GPG_KEY_ID")
+            :gpg-passphrase ~(System/getenv "LEIN_GPG_PASSPHRASE")}
   :aot [i2p-clj.core]
-  :main [i2p-clj.core]
   :jvm-opts ["-Djdk.attach.allowAttachSelf=true"]
   :test-paths ["test"]
   :repl-options {:init-ns i2p-clj.core}
