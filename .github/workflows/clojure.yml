@@ -25,17 +25,23 @@ jobs:
       run: lein test
 
     - name: Import GPG key
-      uses: crazy-max/ghaction-import-gpg@v6
-      with:
-        gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-        passphrase: ${{ secrets.GPG_PASSPHRASE }}
+      env:
+        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      run: |
+        echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+        echo "trusted-key ${{ secrets.GPG_KEY_ID }}" >> ~/.gnupg/gpg.conf
 
     - name: Configure GPG for non-interactive use
       run: |
         echo "use-agent" >> ~/.gnupg/gpg.conf
         echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
         echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
+        echo "batch" >> ~/.gnupg/gpg.conf
+        echo "no-tty" >> ~/.gnupg/gpg.conf
         gpg-connect-agent reloadagent /bye
+        # Test GPG signing
+        echo "test" | gpg --clearsign --batch --yes --passphrase-fd 0 <<< "${{ secrets.GPG_PASSPHRASE }}"
 
     - name: Deploy to GitHub Packages
       run: lein deploy github
@@ -43,5 +49,6 @@ jobs:
         GITHUB_USERNAME: ${{ github.actor }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
-        GPG_TTY: $(tty)
         LEIN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        GPG_AGENT_INFO: ""
+        GPG_TTY: ""
